@@ -159,6 +159,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
   <button class="tab-btn" data-tab="member">👤 部員別詳細</button>
   <button class="tab-btn" data-tab="trend">📊 傾向・分析</button>
   <button class="tab-btn" data-tab="coaching">🎤 コーチング支援</button>
+  <button class="tab-btn" data-tab="team">👥 チーム管理</button>
 </div>
 <!-- 直近の稽古 -->
 <div class="tab-panel active" id="tab-recent">
@@ -205,6 +206,46 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
     <div class="sbox"><div class="sbox-hdr"><div class="sbox-title">振り返り一覧</div></div><div class="sbox-body" style="padding-bottom:6px"><div class="filter-row"><div class="fg"><label class="flbl">開始日</label><input type="date" class="finput" id="dateFrom"></div><div style="display:flex;align-items:flex-end;color:var(--ink-muted);font-weight:700;padding-bottom:2px">〜</div><div class="fg"><label class="flbl">終了日</label><input type="date" class="finput" id="dateTo"></div><button class="fbtn fb-week" id="btnWeek">今週</button><button class="fbtn fb-clear" id="btnClear">クリア</button></div></div><div class="sbox-body" style="padding-top:0"><div class="cards-grid" id="allCards"><div class="empty" style="grid-column:1/-1"><div class="empty-text">データを収集してください</div></div></div></div></div>
   </div>
 </div>
+<!-- チーム管理 -->
+<div class="tab-panel" id="tab-team">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+
+    <!-- ミーティング議題 -->
+    <div style="background:var(--surface);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);padding:16px 20px;">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:14px;">📋 ミーティング議題設定</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">次回ミーティングの議題を設定します。</div>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="radio" name="agenda-type" value="standard" checked onchange="toggleAgendaInput(this)"> 標準（稽古メニューをつくる）
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="radio" name="agenda-type" value="custom" onchange="toggleAgendaInput(this)"> その他
+        </label>
+      </div>
+      <div id="agenda-custom-input" style="display:none;margin-bottom:12px;">
+        <input type="text" id="agenda-text" placeholder="議題を入力してください" style="width:100%;font-size:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Noto Sans JP',sans-serif;">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="date" id="meeting-date" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">
+        <input type="time" id="meeting-start" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;" value="17:00">
+        <span style="display:flex;align-items:center;font-size:13px;color:var(--ink-muted);">〜</span>
+        <input type="time" id="meeting-end" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;" value="18:00">
+      </div>
+      <button onclick="saveAgenda()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">保存してMARCシートに反映</button>
+    </div>
+
+    <!-- チーム管理 -->
+    <div style="background:var(--surface);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);padding:16px 20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:var(--navy);">👥 チーム管理</div>
+        <button onclick="addTeam()" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">＋ チームを追加</button>
+      </div>
+      <div id="team-editor" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+
+  </div>
+</div>
+
 <!-- コーチング支援 -->
 <div class="tab-panel" id="tab-coaching">
   <div class="content">
@@ -245,6 +286,125 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
 const GAS = 'https://script.google.com/macros/s/AKfycbzAEjob4wNJKirt1L3HG97ujk7oLEC8dCLm3zBRXana_ci-0TbiUwTunLckWTwTMd-2/exec';
 
 let _toastTimer = null;
+// ===== チーム管理 =====
+let teams = JSON.parse(localStorage.getItem('marc_teams') || '[]');
+
+function saveTeams(){ localStorage.setItem('marc_teams', JSON.stringify(teams)); }
+
+function toggleAgendaInput(el){
+  document.getElementById('agenda-custom-input').style.display = el.value === 'custom' ? 'block' : 'none';
+}
+
+function saveAgenda(){
+  const type = document.querySelector('input[name="agenda-type"]:checked')?.value;
+  const text = type === 'custom' ? (document.getElementById('agenda-text')?.value.trim()||'') : '稽古メニューをつくる';
+  const date = document.getElementById('meeting-date')?.value;
+  const start = document.getElementById('meeting-start')?.value;
+  const end = document.getElementById('meeting-end')?.value;
+  if(!text){ showToast('議題を入力してください'); return; }
+  if(!date){ showToast('日付を入力してください'); return; }
+  localStorage.setItem('marc_agenda', JSON.stringify({ text, date, start, end }));
+  showToast('✓ 議題を保存しました');
+}
+
+function addTeam(){
+  teams.push({ name:'チーム'+String.fromCharCode(65+teams.length), leader:'', sub:'', members:[], theme:'' });
+  saveTeams(); renderTeams();
+}
+
+function deleteTeam(i){
+  if(!confirm('このチームを削除しますか？')) return;
+  teams.splice(i,1); saveTeams(); renderTeams();
+}
+
+function saveAllTeams(){
+  teams.forEach(function(t, i){
+    const name = document.getElementById('team-'+i+'-name')?.value.trim()||'';
+    const theme = document.getElementById('team-'+i+'-theme')?.value.trim()||'';
+    teams[i].name = name;
+    teams[i].theme = theme;
+  });
+  saveTeams(); showToast('✓ チーム設定を保存しました'); renderTeams();
+}
+
+function saveTeam(i){
+  const name = document.getElementById('team-'+i+'-name')?.value.trim()||'';
+  const theme = document.getElementById('team-'+i+'-theme')?.value.trim()||'';
+  teams[i].name = name;
+  teams[i].theme = theme;
+  saveTeams(); showToast('✓ 「'+name+'」を保存しました'); renderTeams();
+}
+
+function toggleMember(teamIdx, memberName){
+  const t = teams[teamIdx];
+  const members = t.members || [];
+  const idx = members.indexOf(memberName);
+  if(idx === -1){
+    members.push(memberName);
+  } else {
+    members.splice(idx, 1);
+  }
+  t.members = members;
+  t.leader = members[0] || '';
+  t.sub = members[1] || '';
+  saveTeams(); renderTeams();
+}
+
+function getAllMembers(){
+  if(typeof store !== 'undefined' && store.p && store.p.length){
+    return [...new Set(store.p.map(p=>p['氏名']||p['名前']||'').filter(Boolean))].sort();
+  }
+  // データ未収集時はサンプル
+  return [];
+}
+
+function escHtmlT(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderTeams(){
+  const el = document.getElementById('team-editor'); if(!el) return;
+  if(!teams.length){ el.innerHTML='<div style="font-size:13px;color:var(--ink-muted);text-align:center;padding:20px 0;">「＋ チームを追加」からチームを作成してください</div>'; return; }
+  const allMembers = getAllMembers();
+
+  el.innerHTML = teams.map(function(t,i){
+    const memberBadges = (t.members||[]).map(function(m, idx){
+      let badge = '';
+      if(idx===0) badge='<span style="background:#E6F5F0;color:#0F6E56;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;margin-left:3px;">L</span>';
+      else if(idx===1) badge='<span style="background:#EEF2FF;color:#3730A3;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;margin-left:3px;">S</span>';
+      return '<span style="display:inline-flex;align-items:center;background:var(--navy-pale);color:var(--navy);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleMember('+i+',\''+escHtmlT(m)+'\')">'+escHtmlT(m)+badge+' ✕</span>';
+    }).join('');
+
+    // 全部員リスト（未割り当て or 他チームのメンバーも表示、クリックでこのチームに追加）
+    const memberButtons = allMembers.length
+      ? allMembers.map(function(m){
+          const inThis = (t.members||[]).includes(m);
+          const inOther = !inThis && teams.some(function(ot, oi){ return oi!==i && (ot.members||[]).includes(m); });
+          if(inThis) return ''; // 既に追加済みは非表示
+          const style = inOther
+            ? 'background:#F3F4F6;color:var(--ink-muted);border:1px solid var(--border);opacity:.5;cursor:not-allowed;'
+            : 'background:var(--surface);color:var(--navy);border:1px solid var(--border);cursor:pointer;';
+          const onclick = inOther ? '' : 'onclick="toggleMember('+i+',\''+escHtmlT(m)+'\')"';
+          const tag = inOther ? 'span' : 'button';
+          return '<'+tag+' '+onclick+' style="'+style+'border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:\'Noto Sans JP\',sans-serif;margin:0;">'+escHtmlT(m)+'</'+tag+'>';
+        }).join('')
+      : '<span style="font-size:12px;color:var(--ink-muted);">「データを収集」後に部員名が表示されます</span>';
+
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+        '<input id="team-'+i+'-name" value="'+escHtmlT(t.name)+'" style="font-size:14px;font-weight:700;border:none;background:transparent;color:var(--navy);width:140px;padding:0;font-family:\'Noto Sans JP\',sans-serif;" placeholder="チーム名">'+
+        '<button onclick="deleteTeam('+i+')" style="background:rgba(239,68,68,.1);color:#EF4444;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">削除</button>'+
+      '</div>'+
+      // 選択済みメンバー
+      ((t.members||[]).length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+memberBadges+'</div>' : '')+
+      // 部員クリックで追加
+      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:6px;letter-spacing:.06em;">追加する部員をクリック</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'+memberButtons+'</div>'+
+      '<div style="margin-bottom:0;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">稽古テーマ（未入力で「自由に設定してください」と表示）</div>'+
+        '<input id="team-'+i+'-theme" value="'+escHtmlT(t.theme)+'" placeholder="例：面打ちの踏み込みを意識する" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;"></div>'+
+    '</div>';
+  }).join('') +
+  '<button onclick="saveAllTeams()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-top:14px;">保存する</button>';
+}
+
 function showToast(msg, dur) {
   dur = dur || 2800;
   const wrap = document.getElementById('toastWrap');
@@ -570,6 +730,19 @@ function analyzeCoaching(){
     return `<div class="coaching-card ${pc[a.priority]}" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap"><div style="width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${esc(a.name.charAt(0))}</div><div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(a.name)}</div><div style="font-size:10px;color:var(--ink-muted);margin-top:2px">${pl[a.priority]}　介入スコア <strong>${a.score}</strong>/100</div></div><span style="padding:2px 10px;border-radius:999px;font-size:10px;font-weight:700;${ec[a.emotion]}">${el2[a.emotion]}</span></div>${reasonsHtml}<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px"><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">次の一手の具体性</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${barCol(a.nextScore)}">${a.nextScore||'—'}/5</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">サイクル接続</div><div style="font-size:11px;font-weight:700;color:${connColor[a.cycleConn]}">${connLabel[a.cycleConn]}</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">テーマ深化</div><div style="font-size:11px;font-weight:700;color:${depthColor2[a.themeDepth]}">${depthLabel[a.themeDepth]}</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">達成感</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${barCol(a.latestScore)}">${a.latestScore||'—'}/5</div></div></div>${a.nextTxt?`<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:4px">③ 次への一手</div><div class="chip" style="background:var(--green-pale);border-left:3px solid var(--green);color:var(--ink-soft)">${esc(a.nextTxt)}</div></div>`:'<div style="font-size:11px;color:var(--red);margin-bottom:8px">⚠ ③未記入（自己調整サイクルが閉じていない）</div>'}${a.curIntent?`<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-lt);margin-bottom:4px">✊ 最新のチャレンジ宣言</div><div class="chip chip-d">${esc(a.curIntent)}</div></div>`:''}<div style="background:rgba(255,255,255,.85);border-radius:7px;padding:9px 12px;display:flex;align-items:flex-start;gap:8px"><span style="font-size:14px;flex-shrink:0">💬</span><div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:3px">推奨の声かけ</div><div style="font-size:12px;color:var(--ink);font-weight:600;line-height:1.5">${esc(a.hint)}</div></div></div>${(a.negWords.length||a.posWords.length)?`<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">${a.negWords.length?`<span style="font-size:10px;color:var(--red)">⚠ ${esc(a.negWords.slice(0,3).join('・'))}</span>`:''}${a.posWords.length?`<span style="font-size:10px;color:var(--green)">✓ ${esc(a.posWords.slice(0,3).join('・'))}</span>`:''}</div>`:''}</div>`;
   }).join('');
   cycleMap.innerHTML=`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>部員</th><th>③ 次への一手（前回）</th><th></th><th>✊ 最新のチャレンジ宣言</th><th>接続</th></tr></thead><tbody>${analyzed.map(a=>`<tr><td style="font-weight:600;font-size:12px;white-space:nowrap">${esc(a.name)}</td><td style="font-size:11px;color:var(--ink-soft);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nextTxt?esc(a.nextTxt):'<span style="color:var(--ink-muted)">未記入</span>'}</td><td style="font-size:13px">→</td><td style="font-size:11px;color:var(--ink-soft);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.curIntent?esc(a.curIntent):'<span style="color:var(--ink-muted)">宣言なし</span>'}</td><td style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${connColor[a.cycleConn]};white-space:nowrap">${connBarStr[a.cycleConn]}</td></tr>`).join('')}</tbody></table></div>`;
+}
+// チーム管理・議題初期化
+renderTeams();
+const _savedAgenda = JSON.parse(localStorage.getItem('marc_agenda')||'null');
+if(_savedAgenda){
+  if(_savedAgenda.date){ const el=document.getElementById('meeting-date'); if(el) el.value=_savedAgenda.date; }
+  if(_savedAgenda.start){ const el=document.getElementById('meeting-start'); if(el) el.value=_savedAgenda.start; }
+  if(_savedAgenda.end){ const el=document.getElementById('meeting-end'); if(el) el.value=_savedAgenda.end; }
+  if(_savedAgenda.text && _savedAgenda.text !== '稽古メニューをつくる'){
+    const r=document.querySelector('input[value="custom"]'); if(r) r.checked=true;
+    const inp=document.getElementById('agenda-custom-input'); if(inp) inp.style.display='block';
+    const t=document.getElementById('agenda-text'); if(t) t.value=_savedAgenda.text;
+  }
 }
 </script>
 </body>
