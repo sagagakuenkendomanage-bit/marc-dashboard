@@ -396,7 +396,7 @@ function renderTeams(){
       let badge = '';
       if(idx===0) badge='<span style="background:#E6F5F0;color:#0F6E56;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;margin-left:3px;">L</span>';
       else if(idx===1) badge='<span style="background:#EEF2FF;color:#3730A3;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;margin-left:3px;">S</span>';
-      return '<span style="display:inline-flex;align-items:center;background:var(--navy-pale);color:var(--navy);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleMember('+i+',''+escHtmlT(m)+'')">'+escHtmlT(m)+badge+' ✕</span>';
+      return '<span style="display:inline-flex;align-items:center;background:var(--navy-pale);color:var(--navy);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleMember('+i+',\''+escHtmlT(m)+'\')">'+escHtmlT(m)+badge+' ✕</span>';
     }).join('');
 
     const memberButtons = allMembers.length
@@ -407,24 +407,25 @@ function renderTeams(){
           const style = inOther
             ? 'background:#F3F4F6;color:var(--ink-muted);border:1px solid var(--border);opacity:.5;cursor:not-allowed;'
             : 'background:var(--surface);color:var(--navy);border:1px solid var(--border);cursor:pointer;';
-          const onclick = inOther ? '' : 'onclick="toggleMember('+i+',''+escHtmlT(m)+'')"';
+          const onclick = inOther ? '' : 'onclick="toggleMember('+i+',\''+escHtmlT(m)+'\')"';
           const tag = inOther ? 'span' : 'button';
-          return '<'+tag+' '+onclick+' style="'+style+'border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:'Noto Sans JP',sans-serif;margin:0;">'+escHtmlT(m)+'</'+tag+'>';
+          return '<'+tag+' '+onclick+' style="'+style+'border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:\'Noto Sans JP\',sans-serif;margin:0;">'+escHtmlT(m)+'</'+tag+'>';
         }).join('')
       : '<span style="font-size:12px;color:var(--ink-muted);">「データを収集」後に部員名が表示されます</span>';
 
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
-        '<input id="team-'+i+'-name" value="'+escHtmlT(t.name)+'" style="font-size:14px;font-weight:700;border:none;background:transparent;color:var(--navy);width:140px;padding:0;font-family:'Noto Sans JP',sans-serif;" placeholder="チーム名">'+
-        '<button onclick="deleteTeam('+i+')" style="background:rgba(239,68,68,.1);color:#EF4444;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">削除</button>'+
+        '<input id="team-'+i+'-name" value="'+escHtmlT(t.name)+'" style="font-size:14px;font-weight:700;border:none;background:transparent;color:var(--navy);width:140px;padding:0;font-family:\'Noto Sans JP\',sans-serif;" placeholder="チーム名">'+
+        '<button onclick="deleteTeam('+i+')" style="background:rgba(239,68,68,.1);color:#EF4444;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">削除</button>'+
       '</div>'+
       ((t.members||[]).length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+memberBadges+'</div>' : '')+
       '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:6px;letter-spacing:.06em;">追加する部員をクリック</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'+memberButtons+'</div>'+
       '<div style="margin-bottom:0;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">稽古テーマ（未入力で「自由に設定してください」と表示）</div>'+
-        '<input id="team-'+i+'-theme" value="'+escHtmlT(t.theme)+'" placeholder="例：面打ちの踏み込みを意識する" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:'Noto Sans JP',sans-serif;"></div>'+
+        '<input id="team-'+i+'-theme" value="'+escHtmlT(t.theme)+'" placeholder="例：面打ちの踏み込みを意識する" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;"></div>'+
     '</div>';
   }).join('');
+  // 保存ボタンのidを付与
   const saveBtn = document.querySelector('#team-save-wrap button');
   if(saveBtn && !saveBtn.id) saveBtn.id='team-save-btn';
 }
