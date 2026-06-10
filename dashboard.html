@@ -318,6 +318,11 @@ function addTeam(){
 function deleteTeam(i){
   if(!confirm('このチームを削除しますか？')) return;
   teams.splice(i,1); saveTeamsLocal(); renderTeams();
+  // GASのSSにも即時反映
+  fetch(GAS, { method:'POST', body: JSON.stringify({ _token: WRITE_TOKEN, action:'saveTeams', teams: teams }) })
+  .then(function(r){ return r.json(); })
+  .then(function(res){ if(res.status==='ok') showToast('✓ チームを削除しました'); else showToast('⚠ 削除失敗: '+(res.message||''), 4000); })
+  .catch(function(e){ showToast('⚠ 通信エラー: '+e, 4000); });
 }
 
 function saveAllTeams(){
@@ -369,6 +374,9 @@ function toggleMember(teamIdx, memberName){
   t.leader = members[0] || '';
   t.sub = members[1] || '';
   saveTeamsLocal(); renderTeams();
+  // メンバー変更を即時GASに反映
+  fetch(GAS, { method:'POST', body: JSON.stringify({ _token: WRITE_TOKEN, action:'saveTeams', teams: teams }) })
+  .catch(function(){ /* サイレント失敗：保存ボタンで再試行可能 */ });
 }
 
 function getAllMembers(){
