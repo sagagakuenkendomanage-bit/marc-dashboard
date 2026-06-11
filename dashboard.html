@@ -251,6 +251,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
         <button onclick="addTeam()" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">＋ チームを追加</button>
       </div>
       <div id="team-editor" style="display:flex;flex-direction:column;gap:12px;"></div>
+      <!-- 保存ボタンは1つだけここに静的配置 -->
       <div id="team-save-wrap" style="display:none;margin-top:14px;">
         <button onclick="saveAllTeams()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">保存してMARCシートに反映</button>
       </div>
@@ -296,19 +297,20 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
 
 <script>
 // ★ 新しいGAS URLに更新済み
-const GAS = 'https://script.google.com/macros/s/AKfycbzAEjob4wNJKirt1L3HG97ujk7oLEC8dCLm3zBRXana_ci-0TbiUwTunLckWTwTMd-2/exec';
+const GAS = 'https://script.google.com/macros/s/AKfycbzh2id2zYOwZecGMIiZG3-n0Juqa0KKQRjchXurVbjDnTEKKgejGHDe5LMiJKq-Zk4v/exec';
 
 let _toastTimer = null;
 const WRITE_TOKEN = 'marc2025SagaKendo';
 
 // ===== チーム管理 =====
-let teams = JSON.parse(localStorage.getItem('marc_teams_sagagakuen') || '[]');
+let teams = JSON.parse(localStorage.getItem('marc_teams_sagakita') || '[]');
 
-function saveTeamsLocal(){ localStorage.setItem('marc_teams_sagagakuen', JSON.stringify(teams)); }
+function saveTeamsLocal(){ localStorage.setItem('marc_teams_sagakita', JSON.stringify(teams)); }
 
 function toggleAgendaInput(el){
   document.getElementById('agenda-custom-input').style.display = el.value === 'custom' ? 'block' : 'none';
 }
+
 
 function addTeam(){
   teams.push({ name:'チーム'+String.fromCharCode(65+teams.length), leader:'', sub:'', members:[], theme:'' });
@@ -339,7 +341,7 @@ function saveAllTeams(){
   const agendaStart = document.getElementById('meeting-start')?.value || '';
   const agendaEnd   = document.getElementById('meeting-end')?.value   || '';
   if(agendaDate){
-    localStorage.setItem('marc_agenda_sagagakuen', JSON.stringify({ text:agendaText, date:agendaDate, start:agendaStart, end:agendaEnd }));
+    localStorage.setItem('marc_agenda_sagakita', JSON.stringify({ text:agendaText, date:agendaDate, start:agendaStart, end:agendaEnd }));
   }
   const btn = document.getElementById('team-save-btn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ 保存中…'; }
@@ -441,8 +443,7 @@ function renderTeams(){
 // ===== カレンダー・議題・チームをGASから取得 =====
 function loadNewsData(){
   const calEl = document.getElementById('cal-events-dash');
-  fetch(GAS + '?action=getNews', { method: 'GET' })
-  .then(function(r){ return r.json(); })
+  fetchGAS({ action:'getNews' })
   .then(function(data){
     if(calEl){
       if(data.calendar && data.calendar.length){
@@ -458,7 +459,7 @@ function loadNewsData(){
         calEl.innerHTML = '<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:12px 0;">今後30日間の予定はありません</div>';
       }
     }
-    const agenda = data.agenda || JSON.parse(localStorage.getItem('marc_agenda_sagagakuen')||'null');
+    const agenda = data.agenda || JSON.parse(localStorage.getItem('marc_agenda_sagakita')||'null');
     if(agenda){
       if(agenda.date){ const el=document.getElementById('meeting-date'); if(el) el.value=agenda.date; }
       if(agenda.start){ const el=document.getElementById('meeting-start'); if(el) el.value=agenda.start; }
@@ -471,12 +472,12 @@ function loadNewsData(){
     }
     if(data.teams && data.teams.length){
       teams = data.teams;
-      localStorage.setItem('marc_teams_sagagakuen', JSON.stringify(teams));
+      localStorage.setItem('marc_teams_sagakita', JSON.stringify(teams));
       renderTeams();
     }
   }).catch(function(){
     if(calEl) calEl.innerHTML='<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:12px 0;">予定の読み込みに失敗しました</div>';
-    const agenda = JSON.parse(localStorage.getItem('marc_agenda_sagagakuen')||'null');
+    const agenda = JSON.parse(localStorage.getItem('marc_agenda_sagakita')||'null');
     if(agenda){
       if(agenda.date){ const el=document.getElementById('meeting-date'); if(el) el.value=agenda.date; }
       if(agenda.start){ const el=document.getElementById('meeting-start'); if(el) el.value=agenda.start; }
@@ -489,6 +490,7 @@ function loadNewsData(){
     }
   });
 }
+
 
 function showToast(msg, dur) {
   dur = dur || 2800;
@@ -542,7 +544,7 @@ function setWeekRange(){ const today=new Date(),day=today.getDay(); const mon=ne
 document.addEventListener('click', function(e){
   const t=e.target;
   const tabBtn=t.closest('[data-tab]');
-  if(tabBtn&&tabBtn.classList.contains('tab-btn')){ const id=tabBtn.dataset.tab; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b===tabBtn)); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+id)); if(id==='trend'&&!trendRendered&&store.r.length) renderTrend(); return; }
+  if(tabBtn&&tabBtn.classList.contains('tab-btn')){ const id=tabBtn.dataset.tab; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b===tabBtn)); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+id)); if(id==='trend'&&!trendRendered&&(store.r.length||store.p.length)) renderTrend(); return; }
   if(t.id==='collectBtn'){ collectAll(); return; }
   if(t.id==='analyzeBtn'){ analyzeCoaching(); return; }
   const sortBtn=t.closest('[data-sort]');
@@ -625,14 +627,15 @@ function renderRecent(selectedDate){
   if(!latest) return;
   const dL=store.d.filter(r=>getDate(r)===latest);
   const rL=store.r.filter(r=>getDate(r)===latest);
-  document.getElementById('k-declare').textContent=dL.length;
+  const dLUniq=new Set(dL.map(r=>getName(r))).size;
+  document.getElementById('k-declare').textContent=dLUniq;
   document.getElementById('k-declare-date').textContent=latest;
   const totalMembers=allNames().length;
-  const declarePct=totalMembers>0?Math.round(dL.length/totalMembers*100):0;
+  const declarePct=totalMembers>0?Math.round(dLUniq/totalMembers*100):0;
   const declareBar=document.getElementById('k-declare-bar');
   if(declareBar) declareBar.style.width=declarePct+'%';
   const declareDetail=document.getElementById('k-declare-detail');
-  if(declareDetail) declareDetail.textContent=totalMembers>0?dL.length+'名 / '+totalMembers+'名が宣言':'';
+  if(declareDetail) declareDetail.textContent=totalMembers>0?dLUniq+'名 / '+totalMembers+'名が宣言':'';
   document.getElementById('k-reflect').textContent=rL.length;
   const reflectPct=dL.length?Math.round(rL.length/dL.length*100):0;
   document.getElementById('k-reflect-rate').textContent=dL.length?'提出率 '+reflectPct+'%':'提出率 —%';
