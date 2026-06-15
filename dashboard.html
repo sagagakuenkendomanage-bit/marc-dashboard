@@ -468,10 +468,8 @@ function loadNewsData(){
         const t=document.getElementById('agenda-text'); if(t) t.value=agenda.text;
       }
     }
-    // 保存済みフラグがある場合はGASデータを無条件で優先（削除・全員外しも反映）
-    // フラグがない場合もGASにデータがあれば優先（別デバイス対応）
-    const _saved = localStorage.getItem('marc_teams_saved_sagagakuen');
-    if(data.teams !== undefined && (_saved || (data.teams && data.teams.some(function(t){ return t.members && t.members.length > 0; })))){
+    // 常にGASデータを優先（別アカウント・別デバイス対応）
+    if(data.teams !== undefined){
       teams = data.teams || [];
       localStorage.setItem('marc_teams_sagagakuen', JSON.stringify(teams));
     }
