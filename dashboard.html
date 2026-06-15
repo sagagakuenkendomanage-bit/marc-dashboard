@@ -251,7 +251,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
         <button onclick="addTeam()" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">＋ チームを追加</button>
       </div>
       <div id="team-editor" style="display:flex;flex-direction:column;gap:12px;"></div>
-      <!-- 保存ボタンは1つだけここに静的配置 -->
       <div id="team-save-wrap" style="display:none;margin-top:14px;">
         <button onclick="saveAllTeams()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">保存してMARCシートに反映</button>
       </div>
@@ -297,20 +296,19 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
 
 <script>
 // ★ 新しいGAS URLに更新済み
-const GAS = 'https://script.google.com/macros/s/AKfycbzh2id2zYOwZecGMIiZG3-n0Juqa0KKQRjchXurVbjDnTEKKgejGHDe5LMiJKq-Zk4v/exec';
+const GAS = 'https://script.google.com/macros/s/AKfycbzAEjob4wNJKirt1L3HG97ujk7oLEC8dCLm3zBRXana_ci-0TbiUwTunLckWTwTMd-2/exec';
 
 let _toastTimer = null;
 const WRITE_TOKEN = 'marc2025SagaKendo';
 
 // ===== チーム管理 =====
-let teams = JSON.parse(localStorage.getItem('marc_teams_sagakita') || '[]');
+let teams = JSON.parse(localStorage.getItem('marc_teams_sagagakuen') || '[]');
 
-function saveTeamsLocal(){ localStorage.setItem('marc_teams_sagakita', JSON.stringify(teams)); }
+function saveTeamsLocal(){ localStorage.setItem('marc_teams_sagagakuen', JSON.stringify(teams)); }
 
 function toggleAgendaInput(el){
   document.getElementById('agenda-custom-input').style.display = el.value === 'custom' ? 'block' : 'none';
 }
-
 
 function addTeam(){
   teams.push({ name:'チーム'+String.fromCharCode(65+teams.length), leader:'', sub:'', members:[], theme:'' });
@@ -321,7 +319,7 @@ function deleteTeam(i){
   if(!confirm('このチームを削除しますか？')) return;
   teams.splice(i,1); saveTeamsLocal(); renderTeams();
   // GASのSSにも即時反映
-  fetch(GAS, { method:'POST', body: JSON.stringify({ _token: WRITE_TOKEN, action:'saveTeams', teams: teams }) })
+  if(teams.length >= 0) fetch(GAS, { method:'POST', body: JSON.stringify({ _token: WRITE_TOKEN, action:'saveTeams', teams: teams }) })
   .then(function(r){ return r.json(); })
   .then(function(res){ if(res.status==='ok') showToast('✓ チームを削除しました'); else showToast('⚠ 削除失敗: '+(res.message||''), 4000); })
   .catch(function(e){ showToast('⚠ 通信エラー: '+e, 4000); });
@@ -341,7 +339,7 @@ function saveAllTeams(){
   const agendaStart = document.getElementById('meeting-start')?.value || '';
   const agendaEnd   = document.getElementById('meeting-end')?.value   || '';
   if(agendaDate){
-    localStorage.setItem('marc_agenda_sagakita', JSON.stringify({ text:agendaText, date:agendaDate, start:agendaStart, end:agendaEnd }));
+    localStorage.setItem('marc_agenda_sagagakuen', JSON.stringify({ text:agendaText, date:agendaDate, start:agendaStart, end:agendaEnd }));
   }
   const btn = document.getElementById('team-save-btn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ 保存中…'; }
@@ -376,9 +374,7 @@ function toggleMember(teamIdx, memberName){
   t.leader = members[0] || '';
   t.sub = members[1] || '';
   saveTeamsLocal(); renderTeams();
-  // メンバー変更を即時GASに反映
-  fetch(GAS, { method:'POST', body: JSON.stringify({ _token: WRITE_TOKEN, action:'saveTeams', teams: teams }) })
-  .catch(function(){ /* サイレント失敗：保存ボタンで再試行可能 */ });
+  // メンバー変更はlocalStorageに保存のみ。保存ボタンでGASに反映する。
 }
 
 function getAllMembers(){
@@ -443,7 +439,8 @@ function renderTeams(){
 // ===== カレンダー・議題・チームをGASから取得 =====
 function loadNewsData(){
   const calEl = document.getElementById('cal-events-dash');
-  fetchGAS({ action:'getNews' })
+  fetch(GAS + '?action=getNews', { method: 'GET' })
+  .then(function(r){ return r.json(); })
   .then(function(data){
     if(calEl){
       if(data.calendar && data.calendar.length){
@@ -459,7 +456,7 @@ function loadNewsData(){
         calEl.innerHTML = '<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:12px 0;">今後30日間の予定はありません</div>';
       }
     }
-    const agenda = data.agenda || JSON.parse(localStorage.getItem('marc_agenda_sagakita')||'null');
+    const agenda = data.agenda || JSON.parse(localStorage.getItem('marc_agenda_sagagakuen')||'null');
     if(agenda){
       if(agenda.date){ const el=document.getElementById('meeting-date'); if(el) el.value=agenda.date; }
       if(agenda.start){ const el=document.getElementById('meeting-start'); if(el) el.value=agenda.start; }
@@ -472,12 +469,12 @@ function loadNewsData(){
     }
     if(data.teams && data.teams.length){
       teams = data.teams;
-      localStorage.setItem('marc_teams_sagakita', JSON.stringify(teams));
+      localStorage.setItem('marc_teams_sagagakuen', JSON.stringify(teams));
       renderTeams();
     }
   }).catch(function(){
     if(calEl) calEl.innerHTML='<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:12px 0;">予定の読み込みに失敗しました</div>';
-    const agenda = JSON.parse(localStorage.getItem('marc_agenda_sagakita')||'null');
+    const agenda = JSON.parse(localStorage.getItem('marc_agenda_sagagakuen')||'null');
     if(agenda){
       if(agenda.date){ const el=document.getElementById('meeting-date'); if(el) el.value=agenda.date; }
       if(agenda.start){ const el=document.getElementById('meeting-start'); if(el) el.value=agenda.start; }
@@ -490,7 +487,6 @@ function loadNewsData(){
     }
   });
 }
-
 
 function showToast(msg, dur) {
   dur = dur || 2800;
