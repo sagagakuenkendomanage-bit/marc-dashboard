@@ -143,6 +143,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
   body{background:#fff}
   .card,.sbox,.kpi,.det-box,.chart-box,.ml-box{box-shadow:none;border:1px solid #ddd}
 }
+
+[contenteditable][data-placeholder]:empty::before{content:attr(data-placeholder);color:#aaa;pointer-events:none;display:block;}
 </style>
 </head>
 <body>
@@ -329,7 +331,8 @@ function saveAllTeams(){
   teams.forEach(function(t, i){
     const name     = document.getElementById('team-'+i+'-name')?.value.trim()||'';
     const theme    = document.getElementById('team-'+i+'-theme')?.value.trim()||'';
-    const criteria = (document.getElementById('team-'+i+'-criteria')||{}).value ? document.getElementById('team-'+i+'-criteria').value.trim() : '';
+    const criteriaEl = document.getElementById('team-'+i+'-criteria');
+    const criteria = criteriaEl ? (criteriaEl.textContent||'').trim() : '';
     teams[i].name     = name;
     teams[i].theme    = theme;
     teams[i].criteria = criteria;
@@ -433,14 +436,14 @@ function renderTeams(){
       '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">稽古テーマ（未入力で「自由に設定してください」と表示）</div>'+
         '<input id="team-'+i+'-theme" value="'+escHtmlT(t.theme)+'" placeholder="例：面打ちの踏み込みを意識する" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;"></div>'+
       '<div style="margin-bottom:0;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">メンバー選出基準（チーム編成の意図・基準を記録）</div>'+
-        '<textarea id="team-'+i+'-criteria" placeholder="例：攻撃型と守備型をバランスよく配置。リーダーは声かけが得意な選手を優先。" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;min-height:80px;resize:vertical;box-sizing:border-box;line-height:1.6;"></textarea></div>'+
+        '<div id="team-'+i+'-criteria" contenteditable="true" data-placeholder="例：攻撃型と守備型をバランスよく配置。リーダーは声かけが得意な選手を優先。" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;min-height:80px;line-height:1.6;box-sizing:border-box;white-space:pre-wrap;background:#fff;color:var(--ink);"></div></div>'+
     '</div>';
   }).join('');
   // ★textareaの値はinnerHTMLでセットするとブラウザのパース問題で消えるため
   //   innerHTML設定後にJSで直接セットする
   teams.forEach(function(t, i){
-    var ta = document.getElementById('team-'+i+'-criteria');
-    if(ta) ta.value = t.criteria || '';
+    var el2 = document.getElementById('team-'+i+'-criteria');
+    if(el2) el2.textContent = t.criteria || '';
   });
   // 保存ボタンのidを付与
   const saveBtn = document.querySelector('#team-save-wrap button');
