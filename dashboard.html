@@ -313,7 +313,16 @@ function toggleAgendaInput(el){
 }
 
 function addTeam(){
-  teams.push({ name:'チーム'+String.fromCharCode(65+teams.length), leader:'', sub:'', members:[], theme:'' });
+  // ★現在の入力値を先にteams配列に反映してから新チームを追加する
+  teams.forEach(function(t, i){
+    var nameEl  = document.getElementById('team-'+i+'-name');
+    var themeEl = document.getElementById('team-'+i+'-theme');
+    var critEl  = document.getElementById('team-'+i+'-criteria');
+    if(nameEl)  teams[i].name     = nameEl.value.trim();
+    if(themeEl) teams[i].theme    = themeEl.value.trim();
+    if(critEl)  teams[i].criteria = (critEl.textContent||'').trim();
+  });
+  teams.push({ name:'チーム'+String.fromCharCode(65+teams.length), leader:'', sub:'', members:[], theme:'', criteria:'' });
   saveTeamsLocal(); renderTeams();
 }
 
@@ -368,6 +377,15 @@ function saveAllTeams(){
 }
 
 function toggleMember(teamIdx, memberName){
+  // ★入力中の値を先に保存
+  teams.forEach(function(t, i){
+    var nameEl  = document.getElementById('team-'+i+'-name');
+    var themeEl = document.getElementById('team-'+i+'-theme');
+    var critEl  = document.getElementById('team-'+i+'-criteria');
+    if(nameEl)  teams[i].name     = nameEl.value.trim();
+    if(themeEl) teams[i].theme    = themeEl.value.trim();
+    if(critEl)  teams[i].criteria = (critEl.textContent||'').trim();
+  });
   const t = teams[teamIdx];
   const members = t.members || [];
   const idx = members.indexOf(memberName);
