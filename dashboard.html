@@ -1,17 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1a5fa8">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MARCダッシュボード">
-<link rel="apple-touch-icon" href="icon-ios-180.png">
-<link rel="apple-touch-icon" sizes="152x152" href="icon-ios-152.png">
-<link rel="apple-touch-icon" sizes="167x167" href="icon-ios-167.png">
-<link rel="apple-touch-icon" sizes="1024x1024" href="icon-ios-1024.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-android-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-android-512.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MARC 顧問ダッシュボード</title>
@@ -327,20 +316,23 @@ function addTeam(){
 }
 
 function deleteTeam(i){
-  if(!confirm('このチームを削除しますか？\n（MARCシートへの反映は「保存」ボタンを押すまで行われません）')) return;
+  if(!confirm('このチームを削除しますか？')) return;
   teams.splice(i,1); saveTeamsLocal(); renderTeams();
-  // ★削除も他の編集と同じく、保存ボタン押下時にまとめてGASへ反映する（確定設計）。
-  //   ここで即時POSTすると、他チームの未保存の名前/テーマ編集がGAS側に
-  //   反映されないまま上書きされてしまうため、即時送信は行わない。
-  showToast('チームを削除しました（反映するには保存ボタンを押してください）', 3500);
+  // GASのSSにも即時反映
+  if(teams.length >= 0) fetch(GAS, { method:'POST', body: JSON.stringify({ _token: WRITE_TOKEN, action:'saveTeams', teams: teams }) })
+  .then(function(r){ return r.json(); })
+  .then(function(res){ if(res.status==='ok') showToast('✓ チームを削除しました'); else showToast('⚠ 削除失敗: '+(res.message||''), 4000); })
+  .catch(function(e){ showToast('⚠ 通信エラー: '+e, 4000); });
 }
 
 function saveAllTeams(){
   teams.forEach(function(t, i){
-    const name = document.getElementById('team-'+i+'-name')?.value.trim()||'';
-    const theme = document.getElementById('team-'+i+'-theme')?.value.trim()||'';
-    teams[i].name = name;
-    teams[i].theme = theme;
+    const name     = document.getElementById('team-'+i+'-name')?.value.trim()||'';
+    const theme    = document.getElementById('team-'+i+'-theme')?.value.trim()||'';
+    const criteria = (document.getElementById('team-'+i+'-criteria')||{}).value ? document.getElementById('team-'+i+'-criteria').value.trim() : '';
+    teams[i].name     = name;
+    teams[i].theme    = theme;
+    teams[i].criteria = criteria;
   });
   saveTeamsLocal();
   localStorage.setItem('marc_teams_saved_sagagakuen', 'true');
@@ -395,7 +387,7 @@ function getAllMembers(){
   return [];
 }
 
-function escHtmlT(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escHtmlT(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function renderTeams(){
   const el = document.getElementById('team-editor'); if(!el) return;
@@ -413,7 +405,7 @@ function renderTeams(){
       let badge = '';
       if(idx===0) badge='<span style="background:#E6F5F0;color:#0F6E56;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;margin-left:3px;">L</span>';
       else if(idx===1) badge='<span style="background:#EEF2FF;color:#3730A3;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;margin-left:3px;">S</span>';
-      return '<span data-toggle-member data-team-idx="'+i+'" data-member="'+escHtmlT(m)+'" style="display:inline-flex;align-items:center;background:var(--navy-pale);color:var(--navy);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer;">'+escHtmlT(m)+badge+' ✕</span>';
+      return '<span style="display:inline-flex;align-items:center;background:var(--navy-pale);color:var(--navy);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleMember('+i+',\''+escHtmlT(m)+'\')">'+escHtmlT(m)+badge+' ✕</span>';
     }).join('');
 
     const memberButtons = allMembers.length
@@ -424,9 +416,9 @@ function renderTeams(){
           const style = inOther
             ? 'background:#F3F4F6;color:var(--ink-muted);border:1px solid var(--border);opacity:.5;cursor:not-allowed;'
             : 'background:var(--surface);color:var(--navy);border:1px solid var(--border);cursor:pointer;';
-          const attrs = inOther ? '' : ' data-toggle-member data-team-idx="'+i+'" data-member="'+escHtmlT(m)+'"';
+          const onclick = inOther ? '' : 'onclick="toggleMember('+i+',\''+escHtmlT(m)+'\')"';
           const tag = inOther ? 'span' : 'button';
-          return '<'+tag+attrs+' style="'+style+'border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:\'Noto Sans JP\',sans-serif;margin:0;">'+escHtmlT(m)+'</'+tag+'>';
+          return '<'+tag+' '+onclick+' style="'+style+'border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:\'Noto Sans JP\',sans-serif;margin:0;">'+escHtmlT(m)+'</'+tag+'>';
         }).join('')
       : '<span style="font-size:12px;color:var(--ink-muted);">「データを収集」後に部員名が表示されます</span>';
 
@@ -438,8 +430,10 @@ function renderTeams(){
       ((t.members||[]).length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+memberBadges+'</div>' : '')+
       '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:6px;letter-spacing:.06em;">追加する部員をクリック</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'+memberButtons+'</div>'+
-      '<div style="margin-bottom:0;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">稽古テーマ（未入力で「自由に設定してください」と表示）</div>'+
+      '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">稽古テーマ（未入力で「自由に設定してください」と表示）</div>'+
         '<input id="team-'+i+'-theme" value="'+escHtmlT(t.theme)+'" placeholder="例：面打ちの踏み込みを意識する" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;"></div>'+
+      '<div style="margin-bottom:0;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">メンバー選出基準（チーム編成の意図・基準を記録）</div>'+
+        '<textarea id="team-'+i+'-criteria" placeholder="例：攻撃型と守備型をバランスよく配置。リーダーは声かけが得意な選手を優先。" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;min-height:80px;resize:vertical;box-sizing:border-box;line-height:1.6;">'+escHtmlT(t.criteria||'')+'</textarea></div>'+
     '</div>';
   }).join('');
   // 保存ボタンのidを付与
@@ -568,12 +562,6 @@ document.addEventListener('click', function(e){
 document.getElementById('dateFrom').addEventListener('change', renderAllCards);
 document.getElementById('dateTo').addEventListener('change', renderAllCards);
 document.getElementById('practiceSelect').addEventListener('change', function(){ renderRecent(this.value); });
-// ★チーム編成の部員追加/削除はinnerHTML再描画される領域のため、委譲リスナーで一度だけ登録する
-document.getElementById('team-editor').addEventListener('click', function(e){
-  const el = e.target.closest('[data-toggle-member]');
-  if(!el) return;
-  toggleMember(parseInt(el.dataset.teamIdx,10), el.dataset.member);
-});
 
 function openSidePanel(name,grade,dc,rf){
   const panel=document.getElementById('sidePanel'),overlay=document.getElementById('spOverlay');
@@ -617,33 +605,19 @@ async function collectAll(){
   const btn=document.getElementById('collectBtn');
   btn.disabled=true; btn.textContent='⏳ 収集中…';
   showToast('データを収集しています…');
-  // ★3種類を個別にPromise.allSettledで取得。1つが失敗しても残りは反映する
-  //  （以前はPromise.allで1つでも失敗すると全データが反映されない仕様だった）。
-  const targets=[
-    {key:'d', label:'チャレンジ宣言', type:'チャレンジ宣言'},
-    {key:'r', label:'稽古ログ',       type:'稽古ログ'},
-    {key:'p', label:'自己理解',       type:'自己理解'}
-  ];
-  const settled=await Promise.allSettled(targets.map(function(t){ return fetchGAS({action:'getAll',type:t.type}); }));
-  const failedLabels=[];
-  settled.forEach(function(res, idx){
-    const key=targets[idx].key;
-    if(res.status==='fulfilled'){
-      store[key]=res.value;
-    } else {
-      failedLabels.push(targets[idx].label);
-      if(!Array.isArray(store[key])) store[key]=[];
-    }
-  });
-  const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-  document.getElementById('hdrUpdate').textContent=now+' 収集';
-  trendRendered=false;
-  renderRecent(); renderMemberList(); renderAlerts();
-  if(failedLabels.length){
-    showToast('⚠ '+failedLabels.join('・')+'の取得に失敗しました（他のデータは反映済み・再度「データを収集」を押してください）', 5000);
-  } else {
-    showToast('✓ データを収集しました（宣言'+store.d.length+'件・ログ'+store.r.length+'件）');
-  }
+  try{
+    const [d,r,p]=await Promise.all([
+      fetchGAS({action:'getAll',type:'チャレンジ宣言'}),
+      fetchGAS({action:'getAll',type:'稽古ログ'}),
+      fetchGAS({action:'getAll',type:'自己理解'})
+    ]);
+    store.d=d; store.r=r; store.p=p;
+    const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('hdrUpdate').textContent=now+' 収集';
+    trendRendered=false;
+    renderRecent(); renderMemberList(); renderAlerts();
+    showToast('✓ データを収集しました（宣言'+d.length+'件・ログ'+r.length+'件）');
+  }catch(e){ showToast('⚠ 取得失敗: '+e,4000); }
   btn.disabled=false; btn.textContent='🔄 データを収集';
 }
 
@@ -794,29 +768,21 @@ function coachingHint2(data,priority){ if(data.missCount>=2) return'「最近稽
 function analyzeCoaching(){
   const result=document.getElementById('coachingResult');
   const cycleMap=document.getElementById('cycleMapBody');
-  // ★以前は latestPerMember(store.r)（振り返り提出者）を起点にしていたため、
-  //   「宣言はするが振り返りを一度も出していない部員」が分析対象から完全に漏れていた。
-  //   missRatio（未提出率）でスコアを上げる仕組みなのに、最も未提出率が高い
-  //   ＝最も介入が必要なケースほど画面に出てこない、という構造的な欠陥だった。
-  //   宣言・振り返りのどちらかでも記録がある全員を対象にする。
-  const memberNames=[...new Set([...store.d,...store.r].map(getName).filter(Boolean))];
-  if(!memberNames.length){ result.innerHTML='<div class="empty"><div class="empty-text">宣言・振り返りデータがありません。まずデータを収集してください。</div></div>'; return; }
-  const latestReflectMap={};
-  latestPerMember(store.r).forEach(r=>{ latestReflectMap[getName(r)]=r; });
+  const latest=latestPerMember(store.r);
+  if(!latest.length){ result.innerHTML='<div class="empty"><div class="empty-text">振り返りデータがありません。まずデータを収集してください。</div></div>'; return; }
   const latestDeclare={};
   latestPerMember(store.d).forEach(r=>{ latestDeclare[getName(r)]=r; });
   const reflectDates=[...new Set(store.r.map(getDate).filter(Boolean))].sort();
   const prevScoreMap={};
   if(reflectDates.length>=2){ const pd=reflectDates[reflectDates.length-2]; store.r.filter(r=>getDate(r)===pd).forEach(r=>{ prevScoreMap[getName(r)]=getScore(r); }); }
-  const analyzed=memberNames.map(name=>{
-    const r=latestReflectMap[name]||null;
-    const scene=r?(r.scene||r['印象に残った場面']||''):'',why=r?(r.why||r['なぜそうなったか']||''):'',nextTxt=r?(r.next||r['次への一手']||''):'';
+  const analyzed=latest.map(r=>{
+    const name=getName(r),scene=r.scene||r['印象に残った場面']||'',why=r.why||r['なぜそうなったか']||'',nextTxt=r.next||r['次への一手']||'';
     const curDecl=latestDeclare[name];
     const curIntent=curDecl?(curDecl.intent||curDecl['試したいこと']||''):'';
     const declDates=[...new Set(store.d.filter(r2=>getName(r2)===name).map(r2=>getDate(r2)))];
     const logDates=[...new Set(store.r.filter(r2=>getName(r2)===name).map(r2=>getDate(r2)))];
     const totalDeclare=declDates.length,totalLog=logDates.length,missCount=Math.max(0,totalDeclare-totalLog);
-    const latestScore=r?getScore(r):0,prevScore=prevScoreMap[name]||0;
+    const latestScore=getScore(r),prevScore=prevScoreMap[name]||0;
     const nextScore=calcNextScore(nextTxt),cycleConn=calcCycleConn(nextTxt,curIntent,latestScore);
     const themeDepth=calcThemeDepth(name),emotion=calcEmotion(scene,why);
     const NEG_WORDS=['わからない','わからなかった','できない','できなかった','難しい','焦','苦手','うまくいかない'];
@@ -825,7 +791,7 @@ function analyzeCoaching(){
     const data={name,scene,why,nextTxt,curIntent,totalDeclare,missCount,latestScore,prevScore,nextScore,cycleConn,themeDepth,emotion,negWords,posWords};
     const{score,reasons}=calcInterventionScore(data);
     const priority=priorityFromScore(score),hint=coachingHint2(data,priority);
-    return{...data,score,reasons,priority,hint,hasReflect:!!r};
+    return{...data,score,reasons,priority,hint};
   });
   analyzed.sort((a,b)=>b.score-a.score);
   function setKPI(textId,barId,value,max,unit){ const el=document.getElementById(textId),bar=document.getElementById(barId); if(!el) return; const pct=max>0?Math.min(100,(value/max)*100):0; el.textContent=value!==null?value+unit:'—'; if(bar) bar.style.width=(value!==null?pct:0)+'%'; }
@@ -851,7 +817,7 @@ function analyzeCoaching(){
   const connBarStr={high:'████████ 高',medium:'█████░░░ 中',low:'██░░░░░░ 低',unknown:'——　不明'};
   result.innerHTML=analyzed.map(a=>{
     const reasonsHtml=a.reasons.length?'<div style="margin-bottom:10px;background:rgba(255,255,255,.7);border-radius:7px;padding:8px 12px;"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:6px;">介入根拠（スコア: '+a.score+'/100）</div>'+a.reasons.map(r=>'<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;font-size:11px;"><span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px;">+'+r.weight+'</span><span style="color:var(--ink-soft)"><strong>'+r.label+'</strong>：'+esc(r.detail)+'</span></div>').join('')+'</div>':'<div style="margin-bottom:10px;font-size:11px;color:var(--green);">✓ 特記すべき介入根拠なし</div>';
-    return `<div class="coaching-card ${pc[a.priority]}" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap"><div style="width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${esc(a.name.charAt(0))}</div><div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(a.name)}</div><div style="font-size:10px;color:var(--ink-muted);margin-top:2px">${pl[a.priority]}　介入スコア <strong>${a.score}</strong>/100${a.hasReflect?'':'　<span style="color:var(--red);font-weight:700;">⚠ 振り返り提出歴なし</span>'}</div></div><span style="padding:2px 10px;border-radius:999px;font-size:10px;font-weight:700;${ec[a.emotion]}">${el2[a.emotion]}</span></div>${reasonsHtml}<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px"><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">次の一手の具体性</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${barCol(a.nextScore)}">${a.nextScore||'—'}/5</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">サイクル接続</div><div style="font-size:11px;font-weight:700;color:${connColor[a.cycleConn]}">${connLabel[a.cycleConn]}</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">テーマ深化</div><div style="font-size:11px;font-weight:700;color:${depthColor2[a.themeDepth]}">${depthLabel[a.themeDepth]}</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">達成感</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${barCol(a.latestScore)}">${a.latestScore||'—'}/5</div></div></div>${a.nextTxt?`<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:4px">③ 次への一手</div><div class="chip" style="background:var(--green-pale);border-left:3px solid var(--green);color:var(--ink-soft)">${esc(a.nextTxt)}</div></div>`:`<div style="font-size:11px;color:var(--red);margin-bottom:8px">⚠ ${a.hasReflect?'③未記入（自己調整サイクルが閉じていない）':'振り返り自体が未提出（自己調整サイクルが開始されていない）'}</div>`}${a.curIntent?`<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-lt);margin-bottom:4px">✊ 最新のチャレンジ宣言</div><div class="chip chip-d">${esc(a.curIntent)}</div></div>`:''}<div style="background:rgba(255,255,255,.85);border-radius:7px;padding:9px 12px;display:flex;align-items:flex-start;gap:8px"><span style="font-size:14px;flex-shrink:0">💬</span><div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:3px">推奨の声かけ</div><div style="font-size:12px;color:var(--ink);font-weight:600;line-height:1.5">${esc(a.hint)}</div></div></div>${(a.negWords.length||a.posWords.length)?`<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">${a.negWords.length?`<span style="font-size:10px;color:var(--red)">⚠ ${esc(a.negWords.slice(0,3).join('・'))}</span>`:''}${a.posWords.length?`<span style="font-size:10px;color:var(--green)">✓ ${esc(a.posWords.slice(0,3).join('・'))}</span>`:''}</div>`:''}</div>`;
+    return `<div class="coaching-card ${pc[a.priority]}" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap"><div style="width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${esc(a.name.charAt(0))}</div><div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(a.name)}</div><div style="font-size:10px;color:var(--ink-muted);margin-top:2px">${pl[a.priority]}　介入スコア <strong>${a.score}</strong>/100</div></div><span style="padding:2px 10px;border-radius:999px;font-size:10px;font-weight:700;${ec[a.emotion]}">${el2[a.emotion]}</span></div>${reasonsHtml}<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px"><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">次の一手の具体性</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${barCol(a.nextScore)}">${a.nextScore||'—'}/5</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">サイクル接続</div><div style="font-size:11px;font-weight:700;color:${connColor[a.cycleConn]}">${connLabel[a.cycleConn]}</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">テーマ深化</div><div style="font-size:11px;font-weight:700;color:${depthColor2[a.themeDepth]}">${depthLabel[a.themeDepth]}</div></div><div style="text-align:center;background:rgba(255,255,255,.6);border-radius:7px;padding:8px 4px"><div style="font-size:9px;color:var(--ink-muted);margin-bottom:4px">達成感</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${barCol(a.latestScore)}">${a.latestScore||'—'}/5</div></div></div>${a.nextTxt?`<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:4px">③ 次への一手</div><div class="chip" style="background:var(--green-pale);border-left:3px solid var(--green);color:var(--ink-soft)">${esc(a.nextTxt)}</div></div>`:'<div style="font-size:11px;color:var(--red);margin-bottom:8px">⚠ ③未記入（自己調整サイクルが閉じていない）</div>'}${a.curIntent?`<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-lt);margin-bottom:4px">✊ 最新のチャレンジ宣言</div><div class="chip chip-d">${esc(a.curIntent)}</div></div>`:''}<div style="background:rgba(255,255,255,.85);border-radius:7px;padding:9px 12px;display:flex;align-items:flex-start;gap:8px"><span style="font-size:14px;flex-shrink:0">💬</span><div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:3px">推奨の声かけ</div><div style="font-size:12px;color:var(--ink);font-weight:600;line-height:1.5">${esc(a.hint)}</div></div></div>${(a.negWords.length||a.posWords.length)?`<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">${a.negWords.length?`<span style="font-size:10px;color:var(--red)">⚠ ${esc(a.negWords.slice(0,3).join('・'))}</span>`:''}${a.posWords.length?`<span style="font-size:10px;color:var(--green)">✓ ${esc(a.posWords.slice(0,3).join('・'))}</span>`:''}</div>`:''}</div>`;
   }).join('');
   cycleMap.innerHTML=`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>部員</th><th>③ 次への一手（前回）</th><th></th><th>✊ 最新のチャレンジ宣言</th><th>接続</th></tr></thead><tbody>${analyzed.map(a=>`<tr><td style="font-weight:600;font-size:12px;white-space:nowrap">${esc(a.name)}</td><td style="font-size:11px;color:var(--ink-soft);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nextTxt?esc(a.nextTxt):'<span style="color:var(--ink-muted)">未記入</span>'}</td><td style="font-size:13px">→</td><td style="font-size:11px;color:var(--ink-soft);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.curIntent?esc(a.curIntent):'<span style="color:var(--ink-muted)">宣言なし</span>'}</td><td style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${connColor[a.cycleConn]};white-space:nowrap">${connBarStr[a.cycleConn]}</td></tr>`).join('')}</tbody></table></div>`;
 }
