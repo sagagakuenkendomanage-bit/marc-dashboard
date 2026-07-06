@@ -433,9 +433,15 @@ function renderTeams(){
       '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">稽古テーマ（未入力で「自由に設定してください」と表示）</div>'+
         '<input id="team-'+i+'-theme" value="'+escHtmlT(t.theme)+'" placeholder="例：面打ちの踏み込みを意識する" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;"></div>'+
       '<div style="margin-bottom:0;"><div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">メンバー選出基準（チーム編成の意図・基準を記録）</div>'+
-        '<textarea id="team-'+i+'-criteria" placeholder="例：攻撃型と守備型をバランスよく配置。リーダーは声かけが得意な選手を優先。" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;min-height:80px;resize:vertical;box-sizing:border-box;line-height:1.6;">'+escHtmlT(t.criteria||'')+'</textarea></div>'+
+        '<textarea id="team-'+i+'-criteria" placeholder="例：攻撃型と守備型をバランスよく配置。リーダーは声かけが得意な選手を優先。" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:\'Noto Sans JP\',sans-serif;min-height:80px;resize:vertical;box-sizing:border-box;line-height:1.6;"></textarea></div>'+
     '</div>';
   }).join('');
+  // ★textareaの値はinnerHTMLでセットするとブラウザのパース問題で消えるため
+  //   innerHTML設定後にJSで直接セットする
+  teams.forEach(function(t, i){
+    var ta = document.getElementById('team-'+i+'-criteria');
+    if(ta) ta.value = t.criteria || '';
+  });
   // 保存ボタンのidを付与
   const saveBtn = document.querySelector('#team-save-wrap button');
   if(saveBtn && !saveBtn.id) saveBtn.id='team-save-btn';
