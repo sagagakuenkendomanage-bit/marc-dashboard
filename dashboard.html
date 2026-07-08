@@ -405,7 +405,10 @@ function getAllMembers(){
   if(typeof store !== 'undefined' && store.p && store.p.length){
     return [...new Set(store.p.map(p=>p['氏名']||p['名前']||'').filter(Boolean))].sort();
   }
-  return [];
+  // ★store.pが空（データ未収集）でもteams内の全部員名を返す（フォールバック）
+  var fromTeams = [];
+  (teams||[]).forEach(function(t){ (t.members||[]).forEach(function(m){ if(m) fromTeams.push(m); }); });
+  return [...new Set(fromTeams)].sort();
 }
 
 function escHtmlT(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
