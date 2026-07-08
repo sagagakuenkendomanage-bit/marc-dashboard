@@ -403,9 +403,17 @@ function toggleMember(teamIdx, memberName){
 
 function getAllMembers(){
   if(typeof store !== 'undefined' && store.p && store.p.length){
-    return [...new Set(store.p.map(p=>p['氏名']||p['名前']||'').filter(Boolean))].sort();
+    const names = [...new Set(store.p.map(p=>p['氏名']||p['名前']||'').filter(Boolean))].sort();
+    // ★データ収集時に全部員名をキャッシュ保存
+    try{ localStorage.setItem('marc_members_cache_sagagakuen', JSON.stringify(names)); }catch(e){}
+    return names;
   }
-  // ★store.pが空（データ未収集）でもteams内の全部員名を返す（フォールバック）
+  // ★store.pが空でもキャッシュがあればそこから返す（チーム変更時も部員が消えない）
+  try{
+    const cached = localStorage.getItem('marc_members_cache_sagagakuen');
+    if(cached){ const names = JSON.parse(cached); if(names && names.length) return names; }
+  }catch(e){}
+  // 最終フォールバック：全チームのメンバー名
   var fromTeams = [];
   (teams||[]).forEach(function(t){ (t.members||[]).forEach(function(m){ if(m) fromTeams.push(m); }); });
   return [...new Set(fromTeams)].sort();
