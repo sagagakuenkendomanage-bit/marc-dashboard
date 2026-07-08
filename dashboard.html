@@ -654,6 +654,7 @@ async function collectAll(){
     document.getElementById('hdrUpdate').textContent=now+' 収集';
     trendRendered=false;
     renderRecent(); renderMemberList(); renderAlerts();
+    renderTeams(); // ★データ収集後に部員ボタンを更新
     showToast('✓ データを収集しました（宣言'+d.length+'件・ログ'+r.length+'件）');
   }catch(e){ showToast('⚠ 取得失敗: '+e,4000); }
   btn.disabled=false; btn.textContent='🔄 データを収集';
